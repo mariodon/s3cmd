@@ -1815,7 +1815,7 @@ class S3(object):
         debug("MD5 sums: computed=%s, received=%s" % (md5_computed, response["headers"].get('etag', '').strip('"\'')))
         ## when using KMS encryption, MD5 etag value will not match
         md5_from_s3 = response["headers"].get("etag", "").strip('"\'')
-        if ('-' not in md5_from_s3) and (md5_from_s3 != md5_hash.hexdigest()) and response["headers"].get("x-amz-server-side-encryption") != 'aws:kms':
+        if ('-' not in md5_from_s3) and (md5_from_s3.lower() != md5_hash.hexdigest().lower()) and response["headers"].get("x-amz-server-side-encryption") != 'aws:kms':
             warning("MD5 Sums don't match!")
             if retries:
                 warning("Retrying upload of %s" % (filename))
@@ -2030,7 +2030,7 @@ class S3(object):
                         warning("Unable to open file: %s: %s" % (filename, e))
                     warning("Unable to verify MD5. Assume it matches.")
 
-        response["md5match"] = response.get("md5") == md5_from_s3
+        response["md5match"] = response.get("md5").lower() == md5_from_s3.lower()
         response["elapsed"] = timestamp_end - timestamp_start
         response["size"] = current_position
         response["speed"] = response["elapsed"] and float(response["size"]) / response["elapsed"] or float(-1)
