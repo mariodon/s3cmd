@@ -12,7 +12,6 @@ import sys
 import os
 import time
 import errno
-import base64
 import mimetypes
 import io
 import pprint
@@ -25,6 +24,12 @@ try:
     from urlparse import urlparse
 except ImportError:
     from urllib.parse import urlparse
+try:
+    # Python 2 support
+    from base64 import encodestring
+except ImportError:
+    # Python 3.9.0+ support
+    from base64 import encodebytes as encodestring
 
 import select
 
@@ -1659,13 +1664,16 @@ class S3(object):
                     http_response.read()
                     conn.c._HTTPConnection__state = ConnMan._CS_REQ_SENT
 
-                while (size_left > 0):
+                while size_left > 0:
                     #debug("SendFile: Reading up to %d bytes from '%s' - remaining bytes: %s" % (self.config.send_chunk, filename, size_left))
                     l = min(self.config.send_chunk, size_left)
                     if buffer == '':
                         data = stream.read(l)
                     else:
                         data = buffer
+
+                    if not data:
+                        raise InvalidFileError("File smaller than expected. Was the file truncated?")
 
                     if self.config.limitrate > 0:
                         start_time = time.time()
@@ -1698,6 +1706,10 @@ class S3(object):
             ConnMan.put(conn)
             debug(u"Response:\n" + pprint.pformat(response))
         except ParameterError as e:
+            raise
+        except InvalidFileError as e:
+            if self.config.progress_meter:
+                progress.done("failed")
             raise
         except Exception as e:
             if self.config.progress_meter:
@@ -2054,7 +2066,7 @@ def parse_attrs_header(attrs_header):
 
 def compute_content_md5(body):
     m = md5(encode_to_s3(body))
-    base64md5 = base64.encodestring(m.digest())
+    base64md5 = encodestring(m.digest())
     base64md5 = decode_from_s3(base64md5)
     if base64md5[-1] == '\n':
         base64md5 = base64md5[0:-1]

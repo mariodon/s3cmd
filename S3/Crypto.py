@@ -10,7 +10,11 @@ from __future__ import absolute_import
 
 import sys
 import hmac
-import base64
+try:
+    from base64 import encodebytes as encodestring
+except ImportError:
+    # Python 2 support
+    from base64 import encodestring
 
 from . import Config
 from logging import debug
@@ -63,7 +67,7 @@ def sign_string_v2(string_to_sign):
     and returned signature will be utf-8 encoded "bytes".
     """
     secret_key = Config.Config().secret_key
-    signature = base64.encodestring(hmac.new(encode_to_s3(secret_key), string_to_sign, sha1).digest()).strip()
+    signature = encodestring(hmac.new(encode_to_s3(secret_key), string_to_sign, sha1).digest()).strip()
     return signature
 __all__.append("sign_string_v2")
 
@@ -262,6 +266,8 @@ def checksum_sha256_file(filename, offset=0, size=None):
             size_left = size
             while size_left > 0:
                 chunk = f.read(min(8192, size_left))
+                if not chunk:
+                    break
                 size_left -= len(chunk)
                 hash.update(chunk)
 
